@@ -1,0 +1,40 @@
+x-api: &api
+  build:
+    context: .
+    args:
+      CMD: api
+      # docker build --build-arg CMD=api .
+  environment:
+    - REDIS_ADDR=redis:6379
+  depends_on:
+    redis:
+      condition: service_healthy
+
+services:
+  redis:
+    image: redis:7
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      retries: 10
+  api1: *api
+  api2: *api
+  api3: *api
+  # Docker networking doesn’t require host port publishing.
+
+  lb:
+    build:
+      context: .
+      args:
+        CMD: lb
+    environment:
+      - BACKENDS=http://api1:8080,http://api2:8080,http://api3:8080
+    ports:
+      - "8000:8000"
+    
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"

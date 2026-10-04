@@ -9,11 +9,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/balv1nder/pulse/internal/config"
 	"github.com/balv1nder/pulse/internal/limiter"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -26,6 +28,11 @@ var port string
 type Item struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
+}
+
+type statusRecorder struct {
+	http.ResponseWriter
+	code int
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
@@ -80,12 +87,29 @@ func slowLookup(id string) Item {
 	}
 }
 
+func (r *statusRecorder) WriteHeader(code int) {
+	r.code = code
+	r.ResponseWriter.WriteHeader(code)
+}
+
 func logging(next http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		next.ServeHTTP(w, r) //next here is actually mux
-		log.Printf("%s %s %v", r.Method, r.URL.Path, time.Since(start))
+
+		rec := &statusRecorder{
+			ResponseWriter: w,
+			code:           http.StatusOK,
+		}
+
+		next.ServeHTTP(rec, r) //next here is actually mux
+
+		config.ReqDuration.WithLabelValues(
+			r.Pattern,
+			strconv.Itoa(rec.code),
+		).Observe(float64(time.Since(start).Seconds()))
+
+		log.Printf("%s %s %d %v", r.Method, r.URL.Path, rec.code, time.Since(start))
 	})
 }
 
@@ -138,6 +162,7 @@ func main() {
 	mux := http.NewServeMux()
 	lim := limiter.New(rdb, 1000, time.Second)
 	mux.HandleFunc("GET /healthz", healthz)
+	mux.Handle("GET /metrics", promhttp.Handler())
 	mux.Handle("GET /items/{id}", rateLimit(lim, getItem(rdb)))
 
 	port = config.Getenv("PORT", "8080")

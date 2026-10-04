@@ -26,7 +26,7 @@ type pool struct {
 func (p *pool) pick() *backend {
 	n := uint64(len(p.backends))
 	for i := uint64(0); i < n; i++ {
-		next := p.backends[p.next.Add(1)%uint64(len(p.backends))]
+		next := p.backends[p.next.Add(1)%n]
 		if next.alive.Load() {
 			return next
 		}
