@@ -12,11 +12,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/balv1nder/pulse/internal/config"
 	"github.com/balv1nder/pulse/internal/limiter"
 	"github.com/redis/go-redis/v9"
 )
 
 var hostname, _ = os.Hostname()
+var port string
 
 // w is what you use to send responses back to the browser/client
 // r is the incoming request, has .Method, .URL, .Header, .Body
@@ -64,7 +66,7 @@ func getItem(rdb *redis.Client) http.HandlerFunc {
 
 		}
 
-		w.Header().Set("X-Served-By", hostname)
+		w.Header().Set("X-Served-By", hostname+":"+port)
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(body)
 	}
@@ -89,15 +91,6 @@ func logging(next http.Handler) http.Handler {
 
 func healthz(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "ok")
-}
-
-func getenv(key, fallback string) string {
-	value := os.Getenv(key)
-	if value == "" {
-		log.Printf("%s config not present, defaulting to %s", key, fallback)
-		value = fallback
-	}
-	return value
 }
 
 func rateLimit(l *limiter.Limiter, next http.Handler) http.Handler {
@@ -129,7 +122,7 @@ func rateLimit(l *limiter.Limiter, next http.Handler) http.Handler {
 func main() {
 	rdb := redis.NewClient(
 		&redis.Options{
-			Addr: getenv("REDIS_ADDR", "localhost:6379"),
+			Addr: config.Getenv("REDIS_ADDR", "localhost:6379"),
 		},
 	)
 	redisCtx, cancel := context.WithTimeout(
@@ -143,19 +136,19 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-	lim := limiter.New(rdb, 5, 10*time.Second)
+	lim := limiter.New(rdb, 1000, time.Second)
 	mux.HandleFunc("GET /healthz", healthz)
 	mux.Handle("GET /items/{id}", rateLimit(lim, getItem(rdb)))
 
+	port = config.Getenv("PORT", "8080")
 	srv := &http.Server{
-		Addr:         ":" + getenv("PORT", "8080"),
+		Addr:         ":" + port,
 		Handler:      logging(mux),
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
-
 	go func() {
-		log.Println("api listening on :8080")
+		log.Printf("api listening on %s", srv.Addr)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatal(err)
 		}
