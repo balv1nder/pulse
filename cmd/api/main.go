@@ -67,10 +67,15 @@ func getItem(rdb *redis.Client) http.HandlerFunc {
 			rdb.Set(ctx, key, body, 30*time.Second)
 			w.Header().Set("X-Cache", "MISS")
 		default:
+			redisErr := err
 			item := slowLookup(id)
 			body, err = json.Marshal(item)
-			log.Printf("Redis error: %v", err)
-
+			if err != nil {
+				log.Printf("failed to marshal item after Redis error: %v", err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+			log.Printf("Redis error: %v", redisErr)
 		}
 
 		w.Header().Set("X-Served-By", hostname+":"+port)
@@ -149,15 +154,24 @@ func main() {
 			Addr: config.Getenv("REDIS_ADDR", "localhost:6379"),
 		},
 	)
-	redisCtx, cancel := context.WithTimeout(
+	redisCtx, pingCancel := context.WithTimeout(
 		context.Background(),
 		2*time.Second,
 	)
-	defer cancel()
 
 	if err := rdb.Ping(redisCtx).Err(); err != nil {
-		log.Fatal("Redis connection timeout!")
+		pingCancel()
+		log.Fatalf("Redis connection failed: %v", err)
 	}
+	pingCancel()
+
+	go func() {
+		for range time.Tick(5 * time.Second) {
+			s := rdb.PoolStats()
+			log.Printf("redis pool: total=%d idle=%d hits=%d misses=%d timeouts=%d",
+				s.TotalConns, s.IdleConns, s.Hits, s.Misses, s.Timeouts)
+		}
+	}()
 
 	mux := http.NewServeMux()
 	lim := limiter.New(rdb, 1000, time.Second)

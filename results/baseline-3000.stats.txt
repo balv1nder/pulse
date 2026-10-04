@@ -1,0 +1,8 @@
+NAME                 CPU %
+zealous_hodgkin      117.71%
+pulse-api2-1         39.59%
+pulse-lb-1           88.91%
+pulse-api1-1         40.39%
+pulse-api3-1         35.30%
+pulse-prometheus-1   0.96%
+pulse-redis-1        33.68%

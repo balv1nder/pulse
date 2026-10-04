@@ -1,0 +1,48 @@
+
+
+  █ THRESHOLDS 
+
+    dropped_iterations{scenario:measure}
+    ✗ 'count<1' count=5953
+
+    http_req_duration{scenario:measure}
+    ✗ 'p(99)<100' p(99)=156.33ms
+
+    http_req_failed{scenario:measure}
+    ✓ 'rate<0.01' rate=0.00%
+
+    http_reqs
+    ✓ 'count>1000' count=218716
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 218716  2915.605905/s
+    checks_succeeded...: 100.00% 218716 out of 218716
+    checks_failed......: 0.00%   0 out of 218716
+
+    ✓ status is 200
+
+    HTTP
+    http_req_duration..............: avg=7.06ms med=648.62µs p(90)=6.78ms p(95)=24.53ms p(99)=144.93ms max=1.17s
+      { expected_response:true }...: avg=7.06ms med=648.62µs p(90)=6.78ms p(95)=24.53ms p(99)=144.93ms max=1.17s
+      { scenario:measure }.........: avg=8.18ms med=677.75µs p(90)=8.3ms  p(95)=34.26ms p(99)=156.33ms max=1.17s
+    http_req_failed................: 0.00%  0 out of 218716
+      { scenario:measure }.........: 0.00%  0 out of 174048
+    http_reqs......................: 218716 2915.605905/s
+
+    EXECUTION
+    dropped_iterations.............: 6286   83.795876/s
+      { scenario:measure }.........: 5953   79.3568/s
+    iteration_duration.............: avg=7.38ms med=717.12µs p(90)=7.03ms p(95)=25.6ms  p(99)=151.28ms max=1.25s
+    iterations.....................: 218716 2915.605905/s
+    vus............................: 11     min=0           max=361
+    vus_max........................: 643    min=473         max=643
+
+    NETWORK
+    data_received..................: 40 MB  536 kB/s
+    data_sent......................: 21 MB  279 kB/s
+
+
+
+time="2026-10-04T16:36:31Z" level=error msg="thresholds on metrics 'dropped_iterations{scenario:measure}, http_req_duration{scenario:measure}' have been crossed"

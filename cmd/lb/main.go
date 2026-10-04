@@ -80,6 +80,11 @@ func main() {
 			proxy: httputil.NewSingleHostReverseProxy(u),
 			alive: atomic.Bool{},
 		}
+		b.proxy.Transport = &http.Transport{
+			MaxIdleConns:        1000,
+			MaxIdleConnsPerHost: 200,
+			IdleConnTimeout:     90 * time.Second,
+		}
 		b.alive.Store(true)
 
 		b.proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
@@ -91,5 +96,13 @@ func main() {
 		p.backends = append(p.backends, b)
 	}
 	go p.healthCheck(2 * time.Second)
-	log.Fatal(http.ListenAndServe(":8000", p))
+	srv := &http.Server{
+		Addr:         ":8000",
+		Handler:      p,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+
+	log.Printf("lb listening on %s", srv.Addr)
+	log.Fatal(srv.ListenAndServe())
 }

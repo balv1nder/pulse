@@ -1,0 +1,8 @@
+NAME                 CPU %
+sweet_neumann        100.25%
+pulse-api2-1         38.47%
+pulse-lb-1           95.65%
+pulse-api1-1         47.33%
+pulse-api3-1         50.55%
+pulse-prometheus-1   1.85%
+pulse-redis-1        36.98%
